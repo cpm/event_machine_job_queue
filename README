@@ -1,0 +1,36 @@
+This is an EventMachine module that performs the job of an async job queue.
+The server takes a string of ruby and returns a ticket ID, and disconnects. Clients can then
+ reconnect to determine the state of their job.
+
+You can use this server as a replacement for BackgrounDrB to spin off long jobs in Rails without tying up your web processes.
+
+Typical usage looks like the following:
+EventMachine::run do
+  TransactionMachine::server( :host => 'localhost', :port => 12345 )
+end
+
+
+Transaction machine protocol looks like this:
+C: CHECK ticketid\n\n
+S: DONE chars-count\n\nMARSHALED-DATA  or
+S: WORKING\n\n
+S: NOTFOUND\n\n
+
+C: QUEUE chars-count\n\nMARSHALED-DATA
+S: ticketid\n\n
+S: ERROR reason\n\n
+
+When queueing, you queue a marshalled hash that looks like this:
+
+{
+  :defer => {
+    :method => "String of ruby code to eval.",
+    :callback => "String of ruby code to clean up the callback. Needs to set JobQueue.jobs[@key] = the result you want to return."
+  },
+  :inline => {
+    "Async-friendly ruby code to be evalulated in the handler. The result is automatically set to the result."
+  }
+}
+
+If you use both :defer and :inline, it is undefined which one wins.
+
